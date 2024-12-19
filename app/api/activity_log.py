@@ -1,20 +1,36 @@
-from typing import Any
-import httpx
-from app.models.activity_log import ActivityLogModel
-from urllib.parse import urlencode
+from datetime import datetime
+from typing import Any, Optional
 
-async def get_activities(
-    base_url: str, api_key: str, **extra_headers: dict[str, Any]
-) -> list[ActivityLogModel]:
-    query = urlencode({
-        "limit": 100_000_000, # yes, this is an arbitrary big number
-        "hasUserId": "true",
-    })
-    endpoint = f"{base_url}/System/ActivityLog/Entries?{query}"
+import httpx
+
+
+async def user_played_items(
+    user_id: str,
+    base_url: str,
+    api_key: str,
+    from_user_last_played_date: Optional[datetime] = None,
+    **extra_headers: dict[str, Any],
+) -> list[dict]:
+    params = {
+        "userId": user_id,
+        "isPlayed": True,
+        "recursive": True,
+        "IncludeItemTypes": "Movie,Episode",
+    }
+    endpoint = f"{base_url}/Items"
     headers = {"X-Emby-Token": api_key, **extra_headers}
 
     async with httpx.AsyncClient() as client:
-        response = await client.get(endpoint, headers=headers)
+        response = await client.get(endpoint, headers=headers, params=params)
         response.raise_for_status()
         activity = response.json()
-    return [ActivityLogModel(**act) for act in activity["Items"]]
+
+
+    if from_user_last_played_date:
+        threshold_date = f"{from_user_last_played_date.isoformat()}Z"
+        filtered = []
+        for act in activity["Items"]:
+            if act["UserData"].get("LastPlayedDate") and act["UserData"]["LastPlayedDate"] > threshold_date:
+                filtered.append(act)
+        return filtered
+    return activity
