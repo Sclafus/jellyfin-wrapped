@@ -12,8 +12,6 @@ import (
 const RUNTIME_TICKS_TO_SECONDS = 10_000_000
 
 func main() {
-	// start performance tracing
-	start := time.Now()
 	// Configuration
 	baseURL := os.Getenv("JELLYFIN_URL")
 	apiKey := os.Getenv("API_KEY")
@@ -37,54 +35,35 @@ func main() {
 
 	// Filter items
 	filteredItems := jellyfindata.FilterItemsByDate(activity.Items, &fromDate)
-
-	// Save raw activity data to a file
-	// err = jellyfindata.SaveActivityToFile("data.json", rawData)
-	// if err != nil {
-	// 	fmt.Printf("Error saving activity data to file: %v\n", err)
-	// 	return
-	// }
-	AggregateAndPrintData(filteredItems)
-	fmt.Printf("Total time: %v\n", time.Since(start))
+	seriesData := aggregateSeriesData(filteredItems)
+	printSeriesData(seriesData)
+	moviesData := aggregateMovieData(filteredItems)
+	printMovieData(moviesData)
 }
 
-// TODO: obviously refactor this
-func AggregateAndPrintData(filteredItems []jellyfindata.Item) {
+func aggregateSeriesData(filteredItems []jellyfindata.Item) []jellyfindata.AggregatedSeries {
 	var seriesList []jellyfindata.AggregatedSeries
-	var moviesList []jellyfindata.AggregatedMovie
 
-	// Aggregate runtimes
 	for _, activity := range filteredItems {
-		switch activity.Type {
-		case "Episode":
-			// Check if the series already exists
-			seriesFound := false
-			for i := range seriesList {
-				if seriesList[i].ID == activity.SeriesID {
-					seriesList[i].Ticks += activity.RunTimeTicks
-					seriesFound = true
-					break
-				}
+		if activity.Type != "Episode" {
+			continue
+		}
+		// Check if the series already exists
+		seriesFound := false
+		for i := range seriesList {
+			if seriesList[i].ID == activity.SeriesID {
+				seriesList[i].Ticks += activity.RunTimeTicks
+				seriesFound = true
+				break
 			}
-			// If series doesn't exist, add a new one
-			if !seriesFound {
-				seriesList = append(seriesList, jellyfindata.AggregatedSeries{
-					ID:    activity.SeriesID,
-					Name:  activity.SeriesName,
-					Ticks: activity.RunTimeTicks,
-				})
-			}
-
-		case "Movie":
-			// Add movie to movies list
-			moviesList = append(moviesList, jellyfindata.AggregatedMovie{
-				ID:    activity.ID,
-				Name:  activity.Name,
+		}
+		// If series doesn't exist, add a new one
+		if !seriesFound {
+			seriesList = append(seriesList, jellyfindata.AggregatedSeries{
+				ID:    activity.SeriesID,
+				Name:  activity.SeriesName,
 				Ticks: activity.RunTimeTicks,
 			})
-
-		default:
-			continue
 		}
 	}
 
@@ -93,7 +72,27 @@ func AggregateAndPrintData(filteredItems []jellyfindata.Item) {
 		return seriesList[i].Ticks > seriesList[j].Ticks
 	})
 
-	// Print top 10 series by runtime
+	return seriesList
+}
+
+func aggregateMovieData(filteredItems []jellyfindata.Item) []jellyfindata.AggregatedMovie {
+	var moviesList []jellyfindata.AggregatedMovie
+
+	for _, activity := range filteredItems {
+		if activity.Type != "Movie" {
+			continue
+		}
+		moviesList = append(moviesList, jellyfindata.AggregatedMovie{
+			ID:    activity.ID,
+			Name:  activity.Name,
+			Ticks: activity.RunTimeTicks,
+		})
+	}
+
+	return moviesList
+}
+
+func printSeriesData(seriesList []jellyfindata.AggregatedSeries) {
 	fmt.Println("Top 10 series by runtime:")
 	for i, series := range seriesList {
 		if i >= 10 {
@@ -102,9 +101,9 @@ func AggregateAndPrintData(filteredItems []jellyfindata.Item) {
 		runtimeHours := float64(series.Ticks) / RUNTIME_TICKS_TO_SECONDS / 3600
 		fmt.Printf("%s: %.2f hours\n", series.Name, runtimeHours)
 	}
+}
 
-	// print the total runtime of the movies
-	// TODO: check why this is empty lol
+func printMovieData(moviesList []jellyfindata.AggregatedMovie) {
 	totalRuntime := 0.0
 	for _, movie := range moviesList {
 		runtimeHours := float64(movie.Ticks) / RUNTIME_TICKS_TO_SECONDS / 3600
