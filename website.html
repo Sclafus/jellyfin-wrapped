@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<title>Jellyfin Wrapped</title>
+	<link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+	<h1>Jellyfin Wrapped</h1>
+
+	<div class="input-group">
+		<label for="baseUrl">Base URL:</label><br>
+		<input type="text" id="baseUrl" placeholder="Enter base URL">
+	</div>
+
+	<div class="input-group">
+		<label for="apiKey">API Key:</label><br>
+		<input type="password" id="apiKey" placeholder="Enter API key">
+	</div>
+
+	<div class="input-group">
+		<label for="usersSelect">Select User:</label><br>
+		<select id="usersSelect" style="width: 500px;">
+			<option value="">Select a user...</option>
+		</select>
+	</div>
+
+	<button onclick="fetchUsers()">Fetch Users</button>
+	<br>
+	<button onclick="fetchActivity()">Fetch Activity</button>
+
+	<div id="output"></div>
+
+	<script src="script.js"></script>
+</body>
+
+</html>
