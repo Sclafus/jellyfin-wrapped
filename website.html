@@ -1,8 +1,9 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 
 <head>
 	<title>Jellyfin Wrapped</title>
+	<meta charset="UTF-8">
 	<link rel="stylesheet" href="styles.css">
 </head>
 
@@ -26,13 +27,20 @@
 		</select>
 	</div>
 
+	<div class="input-group">
+		<label for="yearSelect">Select Year:</label><br>
+		<select id="yearSelect" style="width: 200px;">
+				<option value="All">All Years</option>
+		</select>
+</div>
+
 	<button onclick="fetchUsers()">Fetch Users</button>
 	<br>
 	<button onclick="fetchActivity()">Fetch Activity</button>
 
 	<div id="output"></div>
 
-	<script src="script.js"></script>
+	<script src="script.js" defer></script>
 </body>
 
 </html>

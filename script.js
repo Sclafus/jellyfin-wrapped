@@ -1,3 +1,19 @@
+(() => {
+	const yearSelect = document.getElementById('yearSelect');
+	const currentYear = new Date().getFullYear();
+	const startYear = 2023; // TODO: this is completely arbitrary ¯\_(ツ)_/¯
+
+	// Clear existing options
+	yearSelect.innerHTML = '<option value="All">All Years</option>';
+
+	// Add years from current year backwards
+	for (let year = currentYear; year >= startYear; year--) {
+		const option = document.createElement('option');
+		option.value = year;
+		option.textContent = year;
+		yearSelect.appendChild(option);
+	}
+})();
 
 let selectedUserId = '';
 
@@ -33,6 +49,7 @@ async function fetchActivity() {
 	const baseUrl = document.getElementById('baseUrl').value;
 	const apiKey = document.getElementById('apiKey').value;
 	const userId = document.getElementById('usersSelect').value;
+	const year = document.getElementById('yearSelect').value;
 
 	if (!userId) {
 		alert('Please select a user first!');
@@ -49,13 +66,90 @@ async function fetchActivity() {
 		});
 
 		const activity = await response.json();
-		displayJson(activity);
+		const filteredActivity = filterActivity(activity, year);
+		console.log(filteredActivity);
+		displayData(filteredActivity);
 	} catch (error) {
 		console.error('Error fetching activity:', error);
 	}
 }
 
-function displayJson(data) {
+function filterActivity(activity, year) {
+	if (year === 'All') {
+		return activity.Items;
+	}
+	try {
+		year = parseInt(year);
+
+		const filteredItems = activity.Items.filter(item => {
+			const lastPlayedDate = item.UserData.LastPlayedDate;
+			const lastPlayedYear = parseInt(lastPlayedDate.substring(0, 4));
+			return lastPlayedYear === year;
+		});
+		return filteredItems;
+	} catch (error) {
+		console.error('Error filtering activity:', error);
+	}
+}
+
+function displayData(data) {
+	// Calculate statistics
+	const seriesWatchTime = {};
+	let totalMoviesTime = 0;
+	let totalMoviesCount = 0;
+
+	data.forEach(item => {
+		if (item.Type === 'Episode') {
+			// For TV series
+			const seriesName = item.SeriesName;
+			const runtimeSeconds = item.RunTimeTicks / 10000000;
+
+			if (!seriesWatchTime[seriesName]) {
+				seriesWatchTime[seriesName] = {
+					name: seriesName,
+					totalWatchTime: 0,
+					count: 0
+				};
+			}
+			seriesWatchTime[seriesName].totalWatchTime += runtimeSeconds;
+			seriesWatchTime[seriesName].count++;
+		} else if (item.Type === 'Movie') {
+			// For movies
+			totalMoviesTime += item.RunTimeTicks / 10000000;
+			totalMoviesCount++;
+		}
+	});
+
+	// Convert to array and sort by watch time in descending order
+	const sortedSeries = Object.values(seriesWatchTime).sort((a, b) => b.totalWatchTime - a.totalWatchTime);
+	const top10Series = sortedSeries.slice(0, 10);
+
+	// Convert seconds to hours for display
+	top10Series.forEach(series => {
+		series.totalWatchTime = (series.totalWatchTime / 3600).toFixed(2);
+	});
+
+	// Format output
 	const output = document.getElementById('output');
-	output.textContent = JSON.stringify(data, null, 4);
+	let result = `
+				<h3>Top 10 Most Watched TV Series</h3>
+				<ul>`;
+
+	top10Series.forEach(series => {
+		result += `
+						<li>
+								${series.name}
+								(<strong>${series.count} episodes</strong>,
+								 <strong>${series.totalWatchTime} hours</strong>)
+						</li>`;
+	});
+
+	result += `</ul>
+								<h3>Movies</h3>
+								<p>
+										Total movies watched: ${totalMoviesCount}<br>
+										Total movie watch time: ${(totalMoviesTime / 3600).toFixed(2)} hours
+								</p>`;
+
+	output.innerHTML = result;
 }
